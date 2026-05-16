@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import compassLogo from '../assets/compass_logo.png';
 
 const GoogleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -28,12 +29,7 @@ export default function AuthGate({ children, user }) {
       }}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap');`}</style>
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: '0 0 8px', color: '#1a1a1a' }}>
-            Compass
-          </h1>
-          <p style={{ fontSize: 13, color: '#6b6b68', margin: '0 0 36px' }}>
-            Pick what to work on next.
-          </p>
+          <img src={compassLogo} alt="Compass" style={{ height: 80, width: 'auto', marginBottom: 32 }} />
           <button
             onClick={signIn}
             style={{

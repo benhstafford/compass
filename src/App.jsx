@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, List, CheckSquare, BarChart2, Target, LogOut } from 'lucide-react';
+import compassLogo from './assets/compass_logo.png';
 import { calcScore } from './lib/scoring';
 import { supabase, toDb, fromDb } from './lib/supabase';
 import AuthGate from './components/AuthGate';
@@ -279,7 +280,7 @@ export default function App() {
           <div className="page-wrap">
             <header style={{ marginBottom: 56 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a' }}>Compass</h1>
+                <img src={compassLogo} alt="Compass" style={{ height: 52, width: 'auto' }} />
                 <button onClick={toggleFocusMode} className="focus-btn focus-btn-on">
                   <Target size={13} /> Exit Focus
                 </button>
@@ -354,7 +355,7 @@ export default function App() {
         <div className="page-wrap">
           <header style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a' }}>Compass</h1>
+              <img src={compassLogo} alt="Compass" style={{ height: 52, width: 'auto' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span className="hide-sm" style={{ fontSize: 11, color: '#a8a8a4' }}>v0.2</span>
                 <button onClick={toggleFocusMode} className="focus-btn focus-btn-off">
