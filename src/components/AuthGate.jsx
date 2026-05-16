@@ -29,7 +29,7 @@ export default function AuthGate({ children, user }) {
       }}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap');`}</style>
         <div style={{ textAlign: 'center' }}>
-          <img src={compassLogo} alt="Compass" style={{ height: 80, width: 'auto', marginBottom: 32 }} />
+          <img src={compassLogo} alt="Compass" style={{ height: 160, width: 'auto', display: 'block', margin: '0 auto 36px' }} />
           <button
             onClick={signIn}
             style={{
