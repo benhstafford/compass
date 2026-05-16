@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, TrendingUp, Zap, Clock, CalendarClock } from 'lucide-react';
+import { Trash2, TrendingUp, Zap, Clock, CalendarClock, ArrowRight } from 'lucide-react';
 import { SCORING_GUIDE, PERSONAL_SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge } from '../lib/scoring';
 import ScaleField from './ScaleField';
 
@@ -9,7 +9,14 @@ const CRITERION_ICONS = {
   effort: <Clock size={14} />,
 };
 
-export default function EditModal({ task, allProjects, onCommit, onClose, onDelete, mode = 'work' }) {
+const toDatetimeLocal = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+export default function EditModal({ task, allProjects, onCommit, onClose, onDelete, onTransfer, mode = 'work' }) {
   const [local, setLocal] = useState(task);
   const [deleted, setDeleted] = useState(false);
 
@@ -30,6 +37,10 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
     setDeleted(true);
     onDelete();
     onClose();
+  };
+
+  const handleTransfer = () => {
+    onTransfer(local);
   };
 
   useEffect(() => {
@@ -63,7 +74,7 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
+          <div className="edit-2col">
             <div>
               <label className="label" style={{ display: 'block', marginBottom: 4 }}>Project</label>
               <input list="proj-list" value={local.project} onChange={(e) => update({ project: e.target.value })} placeholder="—" className="field-input" />
@@ -75,9 +86,21 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
             </div>
           </div>
 
+          {local.completed && (
+            <div style={{ marginBottom: 18 }}>
+              <label className="label" style={{ display: 'block', marginBottom: 4 }}>Completed at</label>
+              <input
+                type="datetime-local"
+                value={toDatetimeLocal(local.completedAt)}
+                onChange={(e) => update({ completedAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                className="field-input"
+              />
+            </div>
+          )}
+
           <div style={{ marginBottom: 22 }}>
             <label className="label" style={{ display: 'block', marginBottom: 8 }}>Whose ask is this?</label>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {PROVENANCE_OPTIONS.map(opt => {
                 const selected = local.provenance === opt;
                 return (
@@ -144,7 +167,14 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
             <button onClick={handleDelete} className="icn" style={{ color: '#c45b3f', fontSize: 12 }}>
               <Trash2 size={13} /> Delete
             </button>
-            <button onClick={handleClose} className="primary-btn">Done</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {onTransfer && (
+                <button onClick={handleTransfer} className="icn" style={{ fontSize: 12 }}>
+                  <ArrowRight size={13} /> Personal
+                </button>
+              )}
+              <button onClick={handleClose} className="primary-btn">Done</button>
+            </div>
           </div>
         </div>
       </div>

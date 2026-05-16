@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { calcScore, PIE_COLORS } from '../lib/scoring';
+import { calcScore, scoreColors, PIE_COLORS } from '../lib/scoring';
 import EmptyState from './EmptyState';
 
 function PieBlock({ title, data }) {
@@ -62,9 +62,23 @@ export default function StatsView({ tasks }) {
   const avgEffort = tasks.reduce((s, t) => s + t.effort, 0) / tasks.length;
   const projectData = Object.entries(byProject).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
+  // Best completed task per project from last 7 days
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  oneWeekAgo.setHours(0, 0, 0, 0);
+  const recentTasks = tasks.filter(t => new Date(t.completedAt) >= oneWeekAgo);
+  const bestByProject = {};
+  for (const t of recentTasks) {
+    const key = t.project || '(no project)';
+    if (!bestByProject[key] || calcScore(t) > calcScore(bestByProject[key])) {
+      bestByProject[key] = t;
+    }
+  }
+  const bestTasks = Object.entries(bestByProject).sort((a, b) => calcScore(b[1]) - calcScore(a[1]));
+
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, paddingBottom: 22, marginBottom: 26, borderBottom: '1px solid #e8e6e0' }}>
+      <div className="stat-summary">
         {[
           { label: 'Completed', value: tasks.length },
           { label: 'Avg score', value: avgScore.toFixed(1) },
@@ -89,7 +103,34 @@ export default function StatsView({ tasks }) {
         </ResponsiveContainer>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+      {bestTasks.length > 0 && (
+        <div style={{ marginBottom: 32, paddingBottom: 8 }}>
+          <h3 className="label" style={{ marginBottom: 12, marginTop: 0 }}>Best of last 7 days</h3>
+          {bestTasks.map(([proj, task]) => {
+            const s = calcScore(task);
+            const col = scoreColors(s);
+            const completedDate = task.completedAt
+              ? new Date(task.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+              : null;
+            return (
+              <div key={proj} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #e8e6e0' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.3 }}>{task.title}</div>
+                  <div style={{ fontSize: 11, color: '#888581', marginTop: 2, display: 'flex', gap: 8 }}>
+                    <span>{proj}</span>
+                    {completedDate && <span style={{ color: '#c8c5be' }}>· {completedDate}</span>}
+                  </div>
+                </div>
+                <div className="mono" style={{ width: 36, height: 36, borderRadius: '50%', background: col.bg, color: col.fg, fontSize: 14, fontWeight: 500, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {s}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="pie-grid">
         <PieBlock title="By project" data={projectData} />
         <PieBlock title="By effort" data={byEffort} />
       </div>

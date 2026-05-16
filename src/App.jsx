@@ -46,6 +46,20 @@ const SHARED_STYLES = `
   input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #1a1a1a; cursor: pointer; border: none; }
   input[type=range]::-moz-range-track { height: 3px; background: #e8e6e0; border-radius: 1.5px; }
   input[type=range]::-moz-range-progress { height: 3px; background: #1a1a1a; border-radius: 1.5px; }
+  .page-wrap { max-width: 820px; margin: 0 auto; padding: 40px 28px 80px; }
+  .stat-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding-bottom: 22px; margin-bottom: 26px; border-bottom: 1px solid #e8e6e0; }
+  .pie-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .edit-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+  .focus-rank { font-family: 'IBM Plex Mono', monospace; font-size: 96px; font-weight: 600; line-height: 0.85; color: #1a1a1a; flex-shrink: 0; letter-spacing: -0.04em; padding-top: 6px; }
+  @media (max-width: 560px) {
+    .page-wrap { padding: 24px 16px 60px; }
+    .stat-summary { grid-template-columns: repeat(2, 1fr); }
+    .pie-grid { grid-template-columns: 1fr; }
+    .edit-2col { grid-template-columns: 1fr; }
+    .focus-rank { font-size: 64px; }
+    .hide-sm { display: none !important; }
+    .tab { margin-right: 16px; }
+  }
 `;
 
 const ModeSwitcher = ({ mode, onChange }) => (
@@ -154,13 +168,12 @@ export default function App() {
     const channel = supabase
       .channel('work-tasks-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${user.id}` }, (payload) => {
-        if (payload.eventType === 'INSERT') {
+        if (payload.eventType === 'INSERT')
           setTasks(prev => prev.some(t => t.id === payload.new.id) ? prev : [fromDb(payload.new), ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
+        else if (payload.eventType === 'UPDATE')
           setTasks(prev => prev.map(t => t.id === payload.new.id ? fromDb(payload.new) : t));
-        } else if (payload.eventType === 'DELETE') {
+        else if (payload.eventType === 'DELETE')
           setTasks(prev => prev.filter(t => t.id !== payload.old.id));
-        }
       })
       .subscribe();
     return () => supabase.removeChannel(channel);
@@ -172,13 +185,12 @@ export default function App() {
     const channel = supabase
       .channel('personal-tasks-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_tasks', filter: `user_id=eq.${user.id}` }, (payload) => {
-        if (payload.eventType === 'INSERT') {
+        if (payload.eventType === 'INSERT')
           setPersonalTasks(prev => prev.some(t => t.id === payload.new.id) ? prev : [fromDb(payload.new), ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
+        else if (payload.eventType === 'UPDATE')
           setPersonalTasks(prev => prev.map(t => t.id === payload.new.id ? fromDb(payload.new) : t));
-        } else if (payload.eventType === 'DELETE') {
+        else if (payload.eventType === 'DELETE')
           setPersonalTasks(prev => prev.filter(t => t.id !== payload.old.id));
-        }
       })
       .subscribe();
     return () => supabase.removeChannel(channel);
@@ -221,6 +233,14 @@ export default function App() {
     await supabase.from(activeTable).delete().eq('id', id);
   };
 
+  const transferTask = async (task) => {
+    setTasks(prev => prev.filter(t => t.id !== task.id));
+    setPersonalTasks(prev => [task, ...prev]);
+    setEditingId(null);
+    await supabase.from('personal_tasks').insert(toDb(task, user.id));
+    await supabase.from('tasks').delete().eq('id', task.id);
+  };
+
   const signOut = () => supabase.auth.signOut();
 
   const projects = useMemo(() =>
@@ -256,7 +276,7 @@ export default function App() {
       <AuthGate user={user}>
         <div style={{ minHeight: '100vh', background: '#fafaf7', color: '#1a1a1a', textAlign: 'left' }}>
           <style>{SHARED_STYLES}</style>
-          <div style={{ maxWidth: 820, margin: '0 auto', padding: '40px 28px 80px' }}>
+          <div className="page-wrap">
             <header style={{ marginBottom: 56 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a' }}>Compass</h1>
@@ -287,9 +307,7 @@ export default function App() {
                     style={{ display: 'flex', alignItems: 'flex-start', gap: 28, paddingBottom: 40, marginBottom: 40, borderBottom: i < top3.length - 1 ? '1px solid #e8e6e0' : 'none', cursor: 'pointer' }}
                     onClick={() => setEditingId(task.id)}
                   >
-                    <span className="mono" style={{ fontSize: 96, fontWeight: 600, lineHeight: 0.85, color: '#1a1a1a', flexShrink: 0, letterSpacing: '-0.04em', paddingTop: 6 }}>
-                      {i + 1}
-                    </span>
+                    <span className="focus-rank">{i + 1}</span>
                     <div style={{ flex: 1, paddingTop: 10 }}>
                       <p style={{ fontSize: 24, fontWeight: 500, margin: 0, lineHeight: 1.3, letterSpacing: '-0.01em' }}>
                         {task.title}
@@ -319,6 +337,7 @@ export default function App() {
               onCommit={commitTask}
               onClose={() => setEditingId(null)}
               onDelete={() => deleteTask(editingTask.id)}
+              onTransfer={mode === 'work' ? transferTask : undefined}
               mode={mode}
             />
           )}
@@ -332,12 +351,12 @@ export default function App() {
       <div style={{ minHeight: '100vh', background: '#fafaf7', color: '#1a1a1a', textAlign: 'left' }}>
         <style>{SHARED_STYLES}</style>
 
-        <div style={{ maxWidth: 820, margin: '0 auto', padding: '40px 28px 80px' }}>
+        <div className="page-wrap">
           <header style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a' }}>Compass</h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 11, color: '#a8a8a4' }}>v0.2</span>
+                <span className="hide-sm" style={{ fontSize: 11, color: '#a8a8a4' }}>v0.2</span>
                 <button onClick={toggleFocusMode} className="focus-btn focus-btn-off">
                   <Target size={13} /> Focus
                 </button>
@@ -371,7 +390,7 @@ export default function App() {
                 style={{ flex: 1, fontSize: 15 }}
                 autoFocus
               />
-              <button type="submit" className="add-task-btn">Add task</button>
+              <button type="submit" className="add-task-btn">Add</button>
             </form>
           </header>
 
@@ -402,7 +421,12 @@ export default function App() {
             />
           )}
           {view === 'done' && (
-            <DoneView tasks={completedTasks} onUndo={toggleComplete} onDelete={deleteTask} />
+            <DoneView
+              tasks={completedTasks}
+              onUndo={toggleComplete}
+              onDelete={deleteTask}
+              onEdit={setEditingId}
+            />
           )}
           {view === 'report' && <StatsView tasks={completedTasks} />}
 
@@ -413,6 +437,7 @@ export default function App() {
               onCommit={commitTask}
               onClose={() => setEditingId(null)}
               onDelete={() => deleteTask(editingTask.id)}
+              onTransfer={mode === 'work' ? transferTask : undefined}
               mode={mode}
             />
           )}
@@ -421,7 +446,7 @@ export default function App() {
             <span className="mono" style={{ fontSize: 11, color: '#888581' }}>
               {footerFormula}
             </span>
-            <span className="mono" style={{ fontSize: 11, color: '#a8a8a4' }}>0 — 24</span>
+            <span className="mono hide-sm" style={{ fontSize: 11, color: '#a8a8a4' }}>0 — 24</span>
           </footer>
         </div>
       </div>
