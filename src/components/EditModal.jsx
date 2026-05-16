@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, TrendingUp, Zap, Clock, CalendarClock } from 'lucide-react';
-import { SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge } from '../lib/scoring';
+import { SCORING_GUIDE, PERSONAL_SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge } from '../lib/scoring';
 import ScaleField from './ScaleField';
 
 const CRITERION_ICONS = {
@@ -9,7 +9,7 @@ const CRITERION_ICONS = {
   effort: <Clock size={14} />,
 };
 
-export default function EditModal({ task, allProjects, onCommit, onClose, onDelete }) {
+export default function EditModal({ task, allProjects, onCommit, onClose, onDelete, mode = 'work' }) {
   const [local, setLocal] = useState(task);
   const [deleted, setDeleted] = useState(false);
 
@@ -39,10 +39,11 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [local, deleted]);
 
+  const scoringGuide = mode === 'personal' ? PERSONAL_SCORING_GUIDE : SCORING_GUIDE;
   const score = calcScore(local);
   const c = scoreColors(score);
   const u = calcUrgency(local.dueDate);
-  const nudge = getNudge(local);
+  const nudge = mode === 'work' ? getNudge(local) : null;
 
   return (
     <div className="modal-bg" onClick={handleClose}>
@@ -104,7 +105,7 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
             </div>
           </div>
 
-          {Object.entries(SCORING_GUIDE).map(([key, guide]) => (
+          {Object.entries(scoringGuide).map(([key, guide]) => (
             <ScaleField key={key} guide={guide} value={local[key]} onChange={(v) => updateScored({ [key]: v })} icon={CRITERION_ICONS[key]} />
           ))}
 
@@ -131,7 +132,11 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
 
           <div style={{ paddingTop: 16, paddingBottom: 4, borderTop: '1px solid #1a1a1a' }}>
             <p className="mono" style={{ fontSize: 11, color: '#5a5854', margin: 0 }}>
-              {local.careerAlignment} <span style={{ color: '#888581' }}>career</span> + {local.leverage} <span style={{ color: '#888581' }}>leverage</span> + 3×{u} <span style={{ color: '#888581' }}>urgency</span> − {local.effort} <span style={{ color: '#888581' }}>effort</span> = <strong>{score}</strong>
+              {mode === 'personal' ? (
+                <>{local.careerAlignment} <span style={{ color: '#888581' }}>relationship</span> + {local.leverage} <span style={{ color: '#888581' }}>consequence</span> + 3×{u} <span style={{ color: '#888581' }}>urgency</span> − {local.effort} <span style={{ color: '#888581' }}>effort to start</span> = <strong>{score}</strong></>
+              ) : (
+                <>{local.careerAlignment} <span style={{ color: '#888581' }}>career</span> + {local.leverage} <span style={{ color: '#888581' }}>leverage</span> + 3×{u} <span style={{ color: '#888581' }}>urgency</span> − {local.effort} <span style={{ color: '#888581' }}>effort</span> = <strong>{score}</strong></>
+              )}
             </p>
           </div>
 

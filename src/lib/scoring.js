@@ -73,6 +73,42 @@ export const rankColor = (rank, total) => {
   };
 };
 
+export const PERSONAL_SCORING_GUIDE = {
+  careerAlignment: {
+    label: 'Relationship impact',
+    description: 'Does someone you care about notice or suffer if this doesn\'t get done?',
+    levels: [
+      { v: 1, l: 'Nobody affected but me' },
+      { v: 2, l: 'Minor annoyance to others' },
+      { v: 3, l: 'Noticeably affects household' },
+      { v: 4, l: 'Directly affects someone I care about' },
+      { v: 5, l: 'Significant relationship consequence if ignored' }
+    ]
+  },
+  leverage: {
+    label: 'Consequence of delay',
+    description: 'What actually happens if this slips another week?',
+    levels: [
+      { v: 1, l: 'Nothing changes' },
+      { v: 2, l: 'Minor inconvenience' },
+      { v: 3, l: 'Noticeable problem' },
+      { v: 4, l: 'Real cost or damage' },
+      { v: 5, l: 'Serious consequence (safety, money, relationship)' }
+    ]
+  },
+  effort: {
+    label: 'Effort to start',
+    description: 'How hard is it to initiate this task, not just complete it?',
+    levels: [
+      { v: 1, l: 'Trivial to begin' },
+      { v: 2, l: 'Slight resistance' },
+      { v: 3, l: 'Noticeable friction to start' },
+      { v: 4, l: 'Significant initiation barrier' },
+      { v: 5, l: 'Very hard to make yourself begin' }
+    ]
+  }
+};
+
 export const PROVENANCE_OPTIONS = ['Me', 'Manager', 'Peer', 'External'];
 
 export const getNudge = (task) => {

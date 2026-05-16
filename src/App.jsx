@@ -48,15 +48,52 @@ const SHARED_STYLES = `
   input[type=range]::-moz-range-progress { height: 3px; background: #1a1a1a; border-radius: 1.5px; }
 `;
 
+const ModeSwitcher = ({ mode, onChange }) => (
+  <div style={{ display: 'flex', background: '#eeecea', borderRadius: 6, padding: 3, width: 'fit-content', marginBottom: 18 }}>
+    {['work', 'personal'].map(m => (
+      <button
+        key={m}
+        onClick={() => onChange(m)}
+        style={{
+          padding: '5px 18px',
+          fontSize: 12,
+          fontWeight: 500,
+          fontFamily: 'inherit',
+          border: 'none',
+          borderRadius: 4,
+          cursor: 'pointer',
+          background: mode === m ? '#1a1a1a' : 'transparent',
+          color: mode === m ? '#fafaf7' : '#888581',
+          transition: 'all 0.15s',
+        }}
+      >
+        {m === 'work' ? 'Work' : 'Personal'}
+      </button>
+    ))}
+  </div>
+);
+
 export default function App() {
   const [user, setUser] = useState(null);
+  const [mode, setMode] = useState('work');
   const [tasks, setTasks] = useState([]);
+  const [personalTasks, setPersonalTasks] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [view, setView] = useState('tasks');
   const [focusMode, setFocusMode] = useState(false);
   const [quickAdd, setQuickAdd] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [filterProject, setFilterProject] = useState('');
+
+  const activeTasks = mode === 'work' ? tasks : personalTasks;
+  const setActiveTasks = mode === 'work' ? setTasks : setPersonalTasks;
+  const activeTable = mode === 'work' ? 'tasks' : 'personal_tasks';
+
+  const switchMode = (m) => {
+    setMode(m);
+    setFilterProject('');
+    setEditingId(null);
+  };
 
   // Auth listener
   useEffect(() => {
@@ -69,13 +106,9 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load tasks when user is known; migrate from localStorage on first sign-in
+  // Load work tasks; migrate localStorage on first sign-in
   useEffect(() => {
-    if (!user) {
-      setTasks([]);
-      setLoaded(false);
-      return;
-    }
+    if (!user) { setTasks([]); setLoaded(false); return; }
     (async () => {
       const { data } = await supabase
         .from('tasks')
@@ -104,25 +137,47 @@ export default function App() {
     })();
   }, [user]);
 
-  // Real-time cross-device sync
+  // Load personal tasks
+  useEffect(() => {
+    if (!user) { setPersonalTasks([]); return; }
+    supabase
+      .from('personal_tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setPersonalTasks((data ?? []).map(fromDb)));
+  }, [user]);
+
+  // Real-time sync — work tasks
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel('tasks-realtime')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'tasks',
-        filter: `user_id=eq.${user.id}`,
-      }, (payload) => {
+      .channel('work-tasks-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${user.id}` }, (payload) => {
         if (payload.eventType === 'INSERT') {
-          setTasks(prev =>
-            prev.some(t => t.id === payload.new.id) ? prev : [fromDb(payload.new), ...prev]
-          );
+          setTasks(prev => prev.some(t => t.id === payload.new.id) ? prev : [fromDb(payload.new), ...prev]);
         } else if (payload.eventType === 'UPDATE') {
           setTasks(prev => prev.map(t => t.id === payload.new.id ? fromDb(payload.new) : t));
         } else if (payload.eventType === 'DELETE') {
           setTasks(prev => prev.filter(t => t.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [user]);
+
+  // Real-time sync — personal tasks
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('personal-tasks-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'personal_tasks', filter: `user_id=eq.${user.id}` }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setPersonalTasks(prev => prev.some(t => t.id === payload.new.id) ? prev : [fromDb(payload.new), ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setPersonalTasks(prev => prev.map(t => t.id === payload.new.id ? fromDb(payload.new) : t));
+        } else if (payload.eventType === 'DELETE') {
+          setPersonalTasks(prev => prev.filter(t => t.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -142,58 +197,58 @@ export default function App() {
       createdAt: new Date().toISOString(),
       scored: false,
     };
-    setTasks(prev => [t, ...prev]);
+    setActiveTasks(prev => [t, ...prev]);
     setQuickAdd('');
-    await supabase.from('tasks').insert(toDb(t, user.id));
+    await supabase.from(activeTable).insert(toDb(t, user.id));
   };
 
   const commitTask = async (full) => {
-    setTasks(prev => prev.map(t => t.id === full.id ? full : t));
-    await supabase.from('tasks').update(toDb(full, user.id)).eq('id', full.id);
+    setActiveTasks(prev => prev.map(t => t.id === full.id ? full : t));
+    await supabase.from(activeTable).update(toDb(full, user.id)).eq('id', full.id);
   };
 
   const toggleComplete = async (id) => {
-    const task = tasks.find(t => t.id === id);
+    const task = activeTasks.find(t => t.id === id);
     if (!task) return;
-    const updated = {
-      ...task,
-      completed: !task.completed,
-      completedAt: !task.completed ? new Date().toISOString() : null,
-    };
-    setTasks(prev => prev.map(t => t.id === id ? updated : t));
-    await supabase.from('tasks').update(toDb(updated, user.id)).eq('id', id);
+    const updated = { ...task, completed: !task.completed, completedAt: !task.completed ? new Date().toISOString() : null };
+    setActiveTasks(prev => prev.map(t => t.id === id ? updated : t));
+    await supabase.from(activeTable).update(toDb(updated, user.id)).eq('id', id);
   };
 
   const deleteTask = async (id) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    setActiveTasks(prev => prev.filter(t => t.id !== id));
     if (editingId === id) setEditingId(null);
-    await supabase.from('tasks').delete().eq('id', id);
+    await supabase.from(activeTable).delete().eq('id', id);
   };
 
   const signOut = () => supabase.auth.signOut();
 
   const projects = useMemo(() =>
-    [...new Set(tasks.map(t => t.project).filter(Boolean))].sort(), [tasks]);
+    [...new Set(activeTasks.map(t => t.project).filter(Boolean))].sort(), [activeTasks]);
 
   const focusTasks = useMemo(() =>
-    tasks
+    activeTasks
       .filter(t => !t.completed)
       .filter(t => !filterProject || t.project === filterProject)
       .sort((a, b) => calcScore(b) - calcScore(a)),
-    [tasks, filterProject]);
+    [activeTasks, filterProject]);
 
   const completedTasks = useMemo(() =>
-    tasks
+    activeTasks
       .filter(t => t.completed)
       .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt)),
-    [tasks]);
+    [activeTasks]);
 
-  const editingTask = editingId ? tasks.find(t => t.id === editingId) : null;
+  const editingTask = editingId ? activeTasks.find(t => t.id === editingId) : null;
 
   const toggleFocusMode = () => {
     setFocusMode(f => !f);
     setView('tasks');
   };
+
+  const footerFormula = mode === 'personal'
+    ? 'score = relationship + consequence + 3×urgency − effort to start'
+    : 'score = career + leverage + 3×urgency − effort';
 
   if (focusMode) {
     const top3 = focusTasks.slice(0, 3);
@@ -204,12 +259,10 @@ export default function App() {
           <div style={{ maxWidth: 820, margin: '0 auto', padding: '40px 28px 80px' }}>
             <header style={{ marginBottom: 56 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>Compass</h1>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <button onClick={toggleFocusMode} className="focus-btn focus-btn-on">
-                    <Target size={13} /> Exit Focus
-                  </button>
-                </div>
+                <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a' }}>Compass</h1>
+                <button onClick={toggleFocusMode} className="focus-btn focus-btn-on">
+                  <Target size={13} /> Exit Focus
+                </button>
               </div>
               <p style={{ fontSize: 13, color: '#6b6b68', marginTop: 4, marginBottom: 0 }}>
                 Pick what to work on next.
@@ -234,10 +287,7 @@ export default function App() {
                     style={{ display: 'flex', alignItems: 'flex-start', gap: 28, paddingBottom: 40, marginBottom: 40, borderBottom: i < top3.length - 1 ? '1px solid #e8e6e0' : 'none', cursor: 'pointer' }}
                     onClick={() => setEditingId(task.id)}
                   >
-                    <span
-                      className="mono"
-                      style={{ fontSize: 96, fontWeight: 600, lineHeight: 0.85, color: '#1a1a1a', flexShrink: 0, letterSpacing: '-0.04em', paddingTop: 6 }}
-                    >
+                    <span className="mono" style={{ fontSize: 96, fontWeight: 600, lineHeight: 0.85, color: '#1a1a1a', flexShrink: 0, letterSpacing: '-0.04em', paddingTop: 6 }}>
                       {i + 1}
                     </span>
                     <div style={{ flex: 1, paddingTop: 10 }}>
@@ -269,6 +319,7 @@ export default function App() {
               onCommit={commitTask}
               onClose={() => setEditingId(null)}
               onDelete={() => deleteTask(editingTask.id)}
+              mode={mode}
             />
           )}
         </div>
@@ -284,7 +335,7 @@ export default function App() {
         <div style={{ maxWidth: 820, margin: '0 auto', padding: '40px 28px 80px' }}>
           <header style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>Compass</h1>
+              <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a' }}>Compass</h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 11, color: '#a8a8a4' }}>v0.2</span>
                 <button onClick={toggleFocusMode} className="focus-btn focus-btn-off">
@@ -301,9 +352,11 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <p style={{ fontSize: 13, color: '#6b6b68', marginTop: 4, marginBottom: 22 }}>
+            <p style={{ fontSize: 13, color: '#6b6b68', marginTop: 4, marginBottom: 18 }}>
               Pick what to work on next.
             </p>
+
+            <ModeSwitcher mode={mode} onChange={switchMode} />
 
             <form
               onSubmit={(e) => { e.preventDefault(); addTask(quickAdd); }}
@@ -360,12 +413,13 @@ export default function App() {
               onCommit={commitTask}
               onClose={() => setEditingId(null)}
               onDelete={() => deleteTask(editingTask.id)}
+              mode={mode}
             />
           )}
 
           <footer style={{ marginTop: 56, paddingTop: 18, borderTop: '1px solid #e8e6e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span className="mono" style={{ fontSize: 11, color: '#888581' }}>
-              score = career + leverage + 3×urgency − effort
+              {footerFormula}
             </span>
             <span className="mono" style={{ fontSize: 11, color: '#a8a8a4' }}>0 — 24</span>
           </footer>
