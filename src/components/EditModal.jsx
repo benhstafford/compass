@@ -25,6 +25,16 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
     setDeleted(false);
   }, [task.id]);
 
+  // Lock body scroll while modal is open; restore on close
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
   const update = (updates) => setLocal(prev => ({ ...prev, ...updates }));
   const updateScored = (updates) => update({ ...updates, scored: true });
 

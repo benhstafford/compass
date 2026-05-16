@@ -12,8 +12,12 @@ import EditModal from './components/EditModal';
 
 const LEGACY_STORAGE_KEY = 'compass-tasks-v1';
 
+const WORK_DEFAULT_PROJECTS = ['Admin', 'People & Team', 'Learning & Development', 'Career Growth'];
+const PERSONAL_DEFAULT_PROJECTS = ['Shopping', 'Home', 'Family', 'Health', 'Finance', 'Social', 'Car & Travel', 'Personal Growth'];
+
 const SHARED_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+  html, body { overflow-x: hidden; }
   body { margin: 0; font-family: 'IBM Plex Sans', system-ui, sans-serif; }
   * { box-sizing: border-box; }
   .mono { font-family: 'IBM Plex Mono', monospace; }
@@ -245,8 +249,11 @@ export default function App() {
 
   const signOut = () => supabase.auth.signOut();
 
+  const defaultProjects = mode === 'work' ? WORK_DEFAULT_PROJECTS : PERSONAL_DEFAULT_PROJECTS;
+
   const projects = useMemo(() =>
-    [...new Set(activeTasks.map(t => t.project).filter(Boolean))].sort(), [activeTasks]);
+    [...new Set([...defaultProjects, ...activeTasks.map(t => t.project).filter(Boolean)])].sort(),
+    [activeTasks, defaultProjects]);
 
   const focusTasks = useMemo(() =>
     activeTasks
@@ -266,6 +273,7 @@ export default function App() {
   const toggleFocusMode = () => {
     setFocusMode(f => !f);
     setView('tasks');
+    window.scrollTo(0, 0);
   };
 
   const footerFormula = mode === 'personal'
