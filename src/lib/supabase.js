@@ -48,6 +48,7 @@ export function fromDbProfile(row) {
     lifeVision: row.life_vision || '',
     currentFocus: row.current_focus || '',
     defaultMode: row.default_mode || 'work',
+    customProjects: row.custom_projects || { work: [], personal: [] },
   };
 }
 
@@ -60,5 +61,6 @@ export function toDbProfile(profile, userId) {
     life_vision: profile.lifeVision || null,
     current_focus: profile.currentFocus || null,
     default_mode: profile.defaultMode || 'work',
+    custom_projects: profile.customProjects || { work: [], personal: [] },
   };
 }

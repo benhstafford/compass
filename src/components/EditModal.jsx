@@ -3,6 +3,7 @@ import { Trash2, TrendingUp, Zap, Clock, CalendarClock, ArrowRight } from 'lucid
 import { SCORING_GUIDE, PERSONAL_SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, PERSONAL_PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge, getPersonalNudge } from '../lib/scoring';
 import posthog from '../lib/posthog';
 import ScaleField from './ScaleField';
+import ProjectCombobox from './ProjectCombobox';
 
 const CRITERION_ICONS = {
   careerAlignment: <TrendingUp size={14} />,
@@ -17,7 +18,7 @@ const toDatetimeLocal = (iso) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export default function EditModal({ task, allProjects, onCommit, onClose, onDelete, onTransfer, mode = 'work', profile }) {
+export default function EditModal({ task, allProjects, onCommit, onClose, onDelete, onTransfer, mode = 'work', profile, onRenameProject }) {
   const [local, setLocal] = useState(task);
   const [deleted, setDeleted] = useState(false);
 
@@ -92,8 +93,12 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
           <div className="edit-2col">
             <div>
               <label className="label" style={{ display: 'block', marginBottom: 4 }}>Project</label>
-              <input list="proj-list" value={local.project} onChange={(e) => update({ project: e.target.value })} placeholder="—" className="field-input" />
-              <datalist id="proj-list">{allProjects.map(p => <option key={p} value={p} />)}</datalist>
+              <ProjectCombobox
+                value={local.project}
+                onChange={(v) => update({ project: v })}
+                allProjects={allProjects}
+                onRenameProject={onRenameProject}
+              />
             </div>
             <div>
               <label className="label" style={{ display: 'block', marginBottom: 4 }}>Due date</label>

@@ -296,6 +296,20 @@ export default function App() {
     await supabase.from('tasks').delete().eq('id', task.id);
   };
 
+  const renameProject = async (oldName, newName, targetMode) => {
+    const table = targetMode === 'work' ? 'tasks' : 'personal_tasks';
+    const setT = targetMode === 'work' ? setTasks : setPersonalTasks;
+    setT(prev => prev.map(t => t.project === oldName ? { ...t, project: newName } : t));
+    await supabase.from(table).update({ project: newName }).eq('user_id', user.id).eq('project', oldName);
+  };
+
+  const deleteProject = async (name, targetMode) => {
+    const table = targetMode === 'work' ? 'tasks' : 'personal_tasks';
+    const setT = targetMode === 'work' ? setTasks : setPersonalTasks;
+    setT(prev => prev.map(t => t.project === name ? { ...t, project: '' } : t));
+    await supabase.from(table).update({ project: null }).eq('user_id', user.id).eq('project', name);
+  };
+
   const signOut = () => supabase.auth.signOut();
 
   const saveProfile = async (updatedProfile) => {
@@ -343,6 +357,20 @@ export default function App() {
   const projects = useMemo(() =>
     [...new Set([...defaultProjects, ...activeTasks.map(t => t.project).filter(Boolean)])].sort(),
     [activeTasks, defaultProjects]);
+
+  const workProjectData = useMemo(() => {
+    const data = {};
+    WORK_DEFAULT_PROJECTS.forEach(p => { data[p] = 0; });
+    tasks.forEach(t => { if (t.project) data[t.project] = (data[t.project] || 0) + 1; });
+    return data;
+  }, [tasks]);
+
+  const personalProjectData = useMemo(() => {
+    const data = {};
+    PERSONAL_DEFAULT_PROJECTS.forEach(p => { data[p] = 0; });
+    personalTasks.forEach(t => { if (t.project) data[t.project] = (data[t.project] || 0) + 1; });
+    return data;
+  }, [personalTasks]);
 
   const focusTasks = useMemo(() =>
     activeTasks
@@ -392,6 +420,10 @@ export default function App() {
             onBack={() => setView('tasks')}
             onExport={exportCSV}
             onDeleteAccount={deleteAccount}
+            workProjectData={workProjectData}
+            personalProjectData={personalProjectData}
+            onRenameProject={renameProject}
+            onDeleteProject={deleteProject}
           />
         </div>
       </AuthGate>
@@ -471,6 +503,7 @@ export default function App() {
               onTransfer={mode === 'work' ? transferTask : undefined}
               mode={mode}
               profile={profile}
+              onRenameProject={(old, newName) => renameProject(old, newName, mode)}
             />
           )}
         </div>
@@ -586,6 +619,7 @@ export default function App() {
               onTransfer={mode === 'work' ? transferTask : undefined}
               mode={mode}
               profile={profile}
+              onRenameProject={(old, newName) => renameProject(old, newName, mode)}
             />
           )}
 
