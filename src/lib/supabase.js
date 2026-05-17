@@ -39,3 +39,26 @@ export function fromDb(row) {
     scored: row.scored,
   };
 }
+
+export function fromDbProfile(row) {
+  return {
+    displayName: row.display_name || '',
+    avatarUrl: row.avatar_url || '',
+    workNorthStar: row.work_north_star || '',
+    lifeVision: row.life_vision || '',
+    currentFocus: row.current_focus || '',
+    defaultMode: row.default_mode || 'work',
+  };
+}
+
+export function toDbProfile(profile, userId) {
+  return {
+    user_id: userId,
+    display_name: profile.displayName || null,
+    avatar_url: profile.avatarUrl || null,
+    work_north_star: profile.workNorthStar || null,
+    life_vision: profile.lifeVision || null,
+    current_focus: profile.currentFocus || null,
+    default_mode: profile.defaultMode || 'work',
+  };
+}

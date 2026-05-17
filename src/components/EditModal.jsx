@@ -17,7 +17,7 @@ const toDatetimeLocal = (iso) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-export default function EditModal({ task, allProjects, onCommit, onClose, onDelete, onTransfer, mode = 'work' }) {
+export default function EditModal({ task, allProjects, onCommit, onClose, onDelete, onTransfer, mode = 'work', profile }) {
   const [local, setLocal] = useState(task);
   const [deleted, setDeleted] = useState(false);
 
@@ -142,6 +142,29 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
               })}
             </div>
           </div>
+
+          {mode === 'work' && profile?.workNorthStar && (
+            <div style={{ marginBottom: 18, padding: '10px 14px', background: '#f0eee9', borderRadius: 3, borderLeft: '2px solid #c8c5be' }}>
+              <p className="label" style={{ margin: '0 0 4px' }}>Your north star</p>
+              <p style={{ fontSize: 12, color: '#5a5854', margin: 0, lineHeight: 1.5 }}>{profile.workNorthStar}</p>
+            </div>
+          )}
+          {mode === 'personal' && (profile?.lifeVision || profile?.currentFocus) && (
+            <div style={{ marginBottom: 18, padding: '10px 14px', background: '#f0eee9', borderRadius: 3, borderLeft: '2px solid #c8c5be' }}>
+              {profile.lifeVision && (
+                <>
+                  <p className="label" style={{ margin: '0 0 4px' }}>Life vision</p>
+                  <p style={{ fontSize: 12, color: '#5a5854', margin: profile.currentFocus ? '0 0 10px' : '0', lineHeight: 1.5 }}>{profile.lifeVision}</p>
+                </>
+              )}
+              {profile.currentFocus && (
+                <>
+                  <p className="label" style={{ margin: '0 0 4px' }}>Current focus</p>
+                  <p style={{ fontSize: 12, color: '#5a5854', margin: 0, lineHeight: 1.5 }}>{profile.currentFocus}</p>
+                </>
+              )}
+            </div>
+          )}
 
           {Object.entries(scoringGuide).map(([key, guide]) => (
             <ScaleField key={key} guide={guide} value={local[key]} onChange={(v) => updateScored({ [key]: v })} icon={CRITERION_ICONS[key]} />

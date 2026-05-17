@@ -1,15 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, List, CheckSquare, BarChart2, Target, LogOut } from 'lucide-react';
 import compassLogo from './assets/compass_logo.png';
 import compassLogoSimple from './assets/compass_logo_simple.png';
 import { calcScore } from './lib/scoring';
-import { supabase, toDb, fromDb } from './lib/supabase';
+import { supabase, toDb, fromDb, fromDbProfile, toDbProfile } from './lib/supabase';
 import posthog from './lib/posthog';
 import AuthGate from './components/AuthGate';
 import FocusView from './components/FocusView';
 import DoneView from './components/DoneView';
 import StatsView from './components/StatsView';
 import EditModal from './components/EditModal';
+import ProfileView from './components/ProfileView';
 
 const LEGACY_STORAGE_KEY = 'compass-tasks-v1';
 
@@ -105,6 +106,8 @@ export default function App() {
   const [quickAdd, setQuickAdd] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [filterProject, setFilterProject] = useState('');
+  const [profile, setProfile] = useState(null);
+  const defaultModeApplied = useRef(false);
 
   const activeTasks = mode === 'work' ? tasks : personalTasks;
   const setActiveTasks = mode === 'work' ? setTasks : setPersonalTasks;
@@ -182,6 +185,34 @@ export default function App() {
       .order('created_at', { ascending: false })
       .then(({ data }) => setPersonalTasks((data ?? []).map(fromDb)));
   }, [user]);
+
+  // Load profile
+  useEffect(() => {
+    if (!user) { setProfile(null); return; }
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setProfile(fromDbProfile(data));
+        } else {
+          supabase
+            .from('profiles')
+            .upsert({ user_id: user.id }, { onConflict: 'user_id' })
+            .then(() => setProfile({ displayName: '', avatarUrl: '', workNorthStar: '', lifeVision: '', currentFocus: '', defaultMode: 'work' }));
+        }
+      });
+  }, [user]);
+
+  // Apply default mode once on first profile load
+  useEffect(() => {
+    if (!defaultModeApplied.current && profile?.defaultMode) {
+      defaultModeApplied.current = true;
+      setMode(profile.defaultMode);
+    }
+  }, [profile]);
 
   // Real-time sync — work tasks
   useEffect(() => {
@@ -267,6 +298,46 @@ export default function App() {
 
   const signOut = () => supabase.auth.signOut();
 
+  const saveProfile = async (updatedProfile) => {
+    setProfile(updatedProfile);
+    await supabase
+      .from('profiles')
+      .upsert(toDbProfile(updatedProfile, user.id), { onConflict: 'user_id' });
+  };
+
+  const exportCSV = () => {
+    const headers = ['mode', 'title', 'project', 'provenance', 'career_alignment', 'leverage', 'effort', 'due_date', 'completed', 'completed_at', 'created_at'];
+    const toRow = (t, modeLabel) => [
+      modeLabel, t.title, t.project || '', t.provenance || '',
+      t.careerAlignment, t.leverage, t.effort,
+      t.dueDate || '', t.completed ? 'true' : 'false',
+      t.completedAt || '', t.createdAt || '',
+    ];
+    const rows = [
+      headers,
+      ...tasks.map(t => toRow(t, 'work')),
+      ...personalTasks.map(t => toRow(t, 'personal')),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compass-tasks-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const deleteAccount = async () => {
+    await supabase.from('tasks').delete().eq('user_id', user.id);
+    await supabase.from('personal_tasks').delete().eq('user_id', user.id);
+    await supabase.from('profiles').delete().eq('user_id', user.id);
+    await supabase.rpc('delete_my_account').catch(() => {});
+    await supabase.auth.signOut();
+  };
+
   const defaultProjects = mode === 'work' ? WORK_DEFAULT_PROJECTS : PERSONAL_DEFAULT_PROJECTS;
 
   const projects = useMemo(() =>
@@ -297,6 +368,35 @@ export default function App() {
   const footerFormula = mode === 'personal'
     ? 'score = relationship + consequence + 3×urgency − effort to start'
     : 'score = career + leverage + 3×urgency − effort';
+
+  const ProfileAvatar = () => {
+    const initial = ((profile?.displayName || user?.email || '?').trim()[0] || '?').toUpperCase();
+    return profile?.avatarUrl ? (
+      <img src={profile.avatarUrl} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+    ) : (
+      <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e8e6e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#5a5854', flexShrink: 0 }}>
+        {initial}
+      </div>
+    );
+  };
+
+  if (view === 'profile') {
+    return (
+      <AuthGate user={user}>
+        <div style={{ minHeight: '100vh', background: '#fafaf7', color: '#1a1a1a', textAlign: 'left' }}>
+          <style>{SHARED_STYLES}</style>
+          <ProfileView
+            user={user}
+            profile={profile}
+            onSave={saveProfile}
+            onBack={() => setView('tasks')}
+            onExport={exportCSV}
+            onDeleteAccount={deleteAccount}
+          />
+        </div>
+      </AuthGate>
+    );
+  }
 
   if (focusMode) {
     const top3 = focusTasks.slice(0, 3);
@@ -370,6 +470,7 @@ export default function App() {
               onDelete={() => deleteTask(editingTask.id)}
               onTransfer={mode === 'work' ? transferTask : undefined}
               mode={mode}
+              profile={profile}
             />
           )}
         </div>
@@ -385,14 +486,25 @@ export default function App() {
         <div className="page-wrap">
           <header style={{ marginBottom: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img src={compassLogoSimple} alt="" style={{ height: 40, width: 'auto' }} />
-                <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a' }}>Compass</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <img src={compassLogoSimple} alt="" style={{ height: 40, width: 'auto', flexShrink: 0 }} />
+                <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.01em', margin: 0, color: '#1a1a1a', flexShrink: 0 }}>Compass</h1>
+                {profile?.displayName && (
+                  <span className="hide-sm" style={{ fontSize: 13, color: '#888581', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    · Hi {profile.displayName.trim().split(/\s+/)[0]}
+                  </span>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className="hide-sm" style={{ fontSize: 11, color: '#a8a8a4' }}>v0.2</span>
                 <button onClick={toggleFocusMode} className="focus-btn focus-btn-off">
                   <Target size={13} /> Focus
+                </button>
+                <button
+                  onClick={() => setView('profile')}
+                  title="Profile"
+                  style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+                >
+                  <ProfileAvatar />
                 </button>
                 <button
                   onClick={signOut}
@@ -473,6 +585,7 @@ export default function App() {
               onDelete={() => deleteTask(editingTask.id)}
               onTransfer={mode === 'work' ? transferTask : undefined}
               mode={mode}
+              profile={profile}
             />
           )}
 
