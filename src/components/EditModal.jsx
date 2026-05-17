@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trash2, TrendingUp, Zap, Clock, CalendarClock, ArrowRight } from 'lucide-react';
-import { SCORING_GUIDE, PERSONAL_SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge } from '../lib/scoring';
+import { SCORING_GUIDE, PERSONAL_SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, PERSONAL_PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge, getPersonalNudge } from '../lib/scoring';
 import posthog from '../lib/posthog';
 import ScaleField from './ScaleField';
 
@@ -65,10 +65,11 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
   }, [local, deleted]);
 
   const scoringGuide = mode === 'personal' ? PERSONAL_SCORING_GUIDE : SCORING_GUIDE;
+  const provenanceOptions = mode === 'personal' ? PERSONAL_PROVENANCE_OPTIONS : PROVENANCE_OPTIONS;
   const score = calcScore(local);
   const c = scoreColors(score);
   const u = calcUrgency(local.dueDate);
-  const nudge = mode === 'work' ? getNudge(local) : null;
+  const nudge = mode === 'work' ? getNudge(local) : getPersonalNudge(local);
 
   return (
     <div className="modal-bg" onClick={handleClose}>
@@ -102,7 +103,7 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
 
           {local.completed && (
             <div style={{ marginBottom: 18 }}>
-              <label className="label" style={{ display: 'block', marginBottom: 4 }}>Completed at</label>
+              <label className="label" style={{ display: 'block', marginBottom: 4 }}>Completed on</label>
               <input
                 type="datetime-local"
                 value={toDatetimeLocal(local.completedAt)}
@@ -115,7 +116,7 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
           <div style={{ marginBottom: 22 }}>
             <label className="label" style={{ display: 'block', marginBottom: 8 }}>Whose ask is this?</label>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {PROVENANCE_OPTIONS.map(opt => {
+              {provenanceOptions.map(opt => {
                 const selected = local.provenance === opt;
                 return (
                   <button

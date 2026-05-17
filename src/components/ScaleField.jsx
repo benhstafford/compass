@@ -7,11 +7,14 @@ export default function ScaleField({ guide, value, onChange, icon }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         {icon && <span style={{ color: '#888581', display: 'flex', flexShrink: 0 }}>{icon}</span>}
         <h4 style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{guide.label}</h4>
-        <span className="mono" style={{ marginLeft: 'auto', fontSize: 12, whiteSpace: 'nowrap' }}>
-          <strong>{value}</strong> <span style={{ color: '#888581' }}>· {current?.l}</span>
+        <span className="mono" style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+          {value}
         </span>
       </div>
-      <p style={{ fontSize: 12, color: '#6b6b68', marginBottom: 12, marginTop: 0 }}>{guide.description}</p>
+      <div style={{ minHeight: '2.8em', fontSize: 12, color: '#6b6b68', marginBottom: 4 }}>
+        {current?.l}
+      </div>
+      <p style={{ fontSize: 12, color: '#888581', marginBottom: 12, marginTop: 0 }}>{guide.description}</p>
       <input
         type="range"
         min={1}

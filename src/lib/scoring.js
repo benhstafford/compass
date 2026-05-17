@@ -111,6 +111,15 @@ export const PERSONAL_SCORING_GUIDE = {
 
 export const PROVENANCE_OPTIONS = ['Me', 'Manager', 'Peer', 'External'];
 
+export const PERSONAL_PROVENANCE_OPTIONS = [
+  'Me',
+  'Partner/Spouse',
+  'Family',
+  'Friend',
+  'Community',
+  'Professional obligation',
+];
+
 export const getNudge = (task) => {
   if (!task.scored) return null;
   const u = calcUrgency(task.dueDate);
@@ -118,5 +127,15 @@ export const getNudge = (task) => {
   if (ef >= 4 && lv <= 2) return "Heavy lift, modest payoff. Who else could do this?";
   if (u >= 4 && ca <= 2 && lv <= 2) return "Is this actually urgent, or did someone else make it urgent for you?";
   if (ca <= 2 && lv <= 2 && u <= 2) return "Why is this on your list?";
+  return null;
+};
+
+export const getPersonalNudge = (task) => {
+  if (!task.scored) return null;
+  const { provenance: prov, careerAlignment: ca, effort: ef } = task;
+  const score = calcScore(task);
+  if (prov === 'Community' && score < 8) return "Community commitments often feel more fixed than they are. Is this still worth your time?";
+  if (prov === 'Friend' && ef >= 4) return "High effort for a friend request. Is there a lighter way to help?";
+  if (prov === 'Me' && ca <= 2) return "Low impact on others. What's making this feel necessary?";
   return null;
 };
