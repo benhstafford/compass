@@ -4,6 +4,7 @@ import compassLogo from './assets/compass_logo.png';
 import compassLogoSimple from './assets/compass_logo_simple.png';
 import { calcScore } from './lib/scoring';
 import { supabase, toDb, fromDb } from './lib/supabase';
+import posthog from './lib/posthog';
 import AuthGate from './components/AuthGate';
 import FocusView from './components/FocusView';
 import DoneView from './components/DoneView';
@@ -110,6 +111,7 @@ export default function App() {
   const activeTable = mode === 'work' ? 'tasks' : 'personal_tasks';
 
   const switchMode = (m) => {
+    if (m !== mode) posthog.capture('mode_switched', { from: mode, to: m });
     setMode(m);
     setFilterProject('');
     setEditingId(null);
@@ -118,10 +120,23 @@ export default function App() {
   // Auth listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) posthog.identify(u.id);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) posthog.identify(u.id);
+      if (event === 'SIGNED_IN') {
+        const seenKey = 'compass-ph-seen';
+        if (!localStorage.getItem(seenKey)) {
+          posthog.capture('user_signed_up');
+          localStorage.setItem(seenKey, '1');
+        } else {
+          posthog.capture('user_logged_in');
+        }
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -217,6 +232,7 @@ export default function App() {
     };
     setActiveTasks(prev => [t, ...prev]);
     setQuickAdd('');
+    posthog.capture('task_added', { mode });
     await supabase.from(activeTable).insert(toDb(t, user.id));
   };
 
@@ -229,6 +245,7 @@ export default function App() {
     const task = activeTasks.find(t => t.id === id);
     if (!task) return;
     const updated = { ...task, completed: !task.completed, completedAt: !task.completed ? new Date().toISOString() : null };
+    if (!task.completed) posthog.capture('task_completed', { score: calcScore(updated), mode, project: updated.project || null });
     setActiveTasks(prev => prev.map(t => t.id === id ? updated : t));
     await supabase.from(activeTable).update(toDb(updated, user.id)).eq('id', id);
   };
@@ -236,6 +253,7 @@ export default function App() {
   const deleteTask = async (id) => {
     setActiveTasks(prev => prev.filter(t => t.id !== id));
     if (editingId === id) setEditingId(null);
+    posthog.capture('task_deleted', { mode });
     await supabase.from(activeTable).delete().eq('id', id);
   };
 

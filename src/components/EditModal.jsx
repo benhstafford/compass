@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trash2, TrendingUp, Zap, Clock, CalendarClock, ArrowRight } from 'lucide-react';
 import { SCORING_GUIDE, PERSONAL_SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge } from '../lib/scoring';
+import posthog from '../lib/posthog';
 import ScaleField from './ScaleField';
 
 const CRITERION_ICONS = {
@@ -39,7 +40,10 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
   const updateScored = (updates) => update({ ...updates, scored: true });
 
   const handleClose = () => {
-    if (!deleted) onCommit(local);
+    if (!deleted) {
+      onCommit(local);
+      posthog.capture('task_edited', { mode });
+    }
     onClose();
   };
 
