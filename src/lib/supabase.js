@@ -31,12 +31,31 @@ export function fromDb(row) {
     provenance: row.provenance,
     careerAlignment: row.career_alignment,
     leverage: row.leverage,
+    mentalLoad: row.mental_load,
     effort: row.effort,
     dueDate: row.due_date,
     completed: row.completed,
     completedAt: row.completed_at,
     createdAt: row.created_at,
     scored: row.scored,
+  };
+}
+
+export function toDbPersonal(task, userId) {
+  return {
+    id: task.id,
+    user_id: userId,
+    title: task.title,
+    project: task.project,
+    provenance: task.provenance,
+    career_alignment: task.careerAlignment,
+    mental_load: task.mentalLoad,
+    effort: task.effort,
+    due_date: task.dueDate,
+    completed: task.completed,
+    completed_at: task.completedAt,
+    created_at: task.createdAt,
+    scored: task.scored,
   };
 }
 

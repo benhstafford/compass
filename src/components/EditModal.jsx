@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, TrendingUp, Zap, Clock, CalendarClock, ArrowRight } from 'lucide-react';
+import { Trash2, TrendingUp, Zap, Brain, Clock, CalendarClock, ArrowRight } from 'lucide-react';
 import { SCORING_GUIDE, PERSONAL_SCORING_GUIDE, URGENCY_LABELS, PROVENANCE_OPTIONS, PERSONAL_PROVENANCE_OPTIONS, calcUrgency, calcScore, scoreColors, getNudge, getPersonalNudge } from '../lib/scoring';
 import posthog from '../lib/posthog';
 import ScaleField from './ScaleField';
@@ -8,6 +8,7 @@ import ProjectCombobox from './ProjectCombobox';
 const CRITERION_ICONS = {
   careerAlignment: <TrendingUp size={14} />,
   leverage: <Zap size={14} />,
+  mentalLoad: <Brain size={14} />,
   effort: <Clock size={14} />,
 };
 
@@ -199,7 +200,7 @@ export default function EditModal({ task, allProjects, onCommit, onClose, onDele
           <div style={{ paddingTop: 16, paddingBottom: 4, borderTop: '1px solid #1a1a1a' }}>
             <p className="mono" style={{ fontSize: 11, color: '#5a5854', margin: 0 }}>
               {mode === 'personal' ? (
-                <>{local.careerAlignment} <span style={{ color: '#888581' }}>relationship</span> + {local.leverage} <span style={{ color: '#888581' }}>consequence</span> + 3×{u} <span style={{ color: '#888581' }}>urgency</span> − {local.effort} <span style={{ color: '#888581' }}>effort to start</span> = <strong>{score}</strong></>
+                <>{local.careerAlignment} <span style={{ color: '#888581' }}>relationship</span> + {local.mentalLoad} <span style={{ color: '#888581' }}>mental load</span> + 3×{u} <span style={{ color: '#888581' }}>urgency</span> − {local.effort} <span style={{ color: '#888581' }}>effort to start</span> = <strong>{score}</strong></>
               ) : (
                 <>{local.careerAlignment} <span style={{ color: '#888581' }}>career</span> + {local.leverage} <span style={{ color: '#888581' }}>leverage</span> + 3×{u} <span style={{ color: '#888581' }}>urgency</span> − {local.effort} <span style={{ color: '#888581' }}>effort</span> = <strong>{score}</strong></>
               )}

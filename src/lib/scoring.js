@@ -53,7 +53,7 @@ export const calcUrgency = (dueDate) => {
 };
 
 export const calcScore = (t) =>
-  t.careerAlignment + t.leverage + 3 * calcUrgency(t.dueDate) - t.effort;
+  t.careerAlignment + (t.mentalLoad ?? t.leverage) + 3 * calcUrgency(t.dueDate) - t.effort;
 
 export const scoreColors = (s) => {
   if (s >= 17) return { bg: '#c45b3f', fg: '#fafaf7' };
@@ -85,15 +85,15 @@ export const PERSONAL_SCORING_GUIDE = {
       { v: 5, l: 'Significant relationship consequence if ignored' }
     ]
   },
-  leverage: {
-    label: 'Consequence of delay',
-    description: 'What actually happens if this slips another week?',
+  mentalLoad: {
+    label: 'Mental Load',
+    description: 'How much is this task living in your head right now? Unfinished tasks that nag at you, cause background stress, or block other things score high.',
     levels: [
-      { v: 1, l: 'Nothing changes' },
-      { v: 2, l: 'Minor inconvenience' },
-      { v: 3, l: 'Noticeable problem' },
-      { v: 4, l: 'Real cost or damage' },
-      { v: 5, l: 'Serious consequence (safety, money, relationship)' }
+      { v: 1, l: 'Barely thought about it, not nagging at all' },
+      { v: 2, l: 'Occasionally crosses my mind' },
+      { v: 3, l: 'Think about it regularly, mild background guilt' },
+      { v: 4, l: 'Comes to mind daily, causing noticeable stress' },
+      { v: 5, l: 'Actively draining me, can\'t stop thinking about it' }
     ]
   },
   effort: {
@@ -132,8 +132,9 @@ export const getNudge = (task) => {
 
 export const getPersonalNudge = (task) => {
   if (!task.scored) return null;
-  const { provenance: prov, careerAlignment: ca, effort: ef } = task;
+  const { provenance: prov, careerAlignment: ca, mentalLoad: ml, effort: ef } = task;
   const score = calcScore(task);
+  if (ml >= 4 && ef >= 4) return "This is draining you and hard to start. What's the smallest step that would move it forward?";
   if (prov === 'Community' && score < 8) return "Community commitments often feel more fixed than they are. Is this still worth your time?";
   if (prov === 'Friend' && ef >= 4) return "High effort for a friend request. Is there a lighter way to help?";
   if (prov === 'Me' && ca <= 2) return "Low impact on others. What's making this feel necessary?";

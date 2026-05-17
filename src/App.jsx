@@ -3,7 +3,7 @@ import { Plus, List, CheckSquare, BarChart2, Target, LogOut } from 'lucide-react
 import compassLogo from './assets/compass_logo.png';
 import compassLogoSimple from './assets/compass_logo_simple.png';
 import { calcScore } from './lib/scoring';
-import { supabase, toDb, fromDb, fromDbProfile, toDbProfile } from './lib/supabase';
+import { supabase, toDb, toDbPersonal, fromDb, fromDbProfile, toDbProfile } from './lib/supabase';
 import posthog from './lib/posthog';
 import AuthGate from './components/AuthGate';
 import FocusView from './components/FocusView';
@@ -250,12 +250,15 @@ export default function App() {
 
   const addTask = async (title) => {
     if (!title.trim()) return;
+    const isPersonal = mode === 'personal';
     const t = {
       id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
       title: title.trim(),
       project: '',
       provenance: '',
-      careerAlignment: 3, leverage: 3, effort: 3,
+      careerAlignment: 3,
+      ...(isPersonal ? { mentalLoad: 3 } : { leverage: 3 }),
+      effort: 3,
       dueDate: '',
       completed: false, completedAt: null,
       createdAt: new Date().toISOString(),
@@ -264,12 +267,13 @@ export default function App() {
     setActiveTasks(prev => [t, ...prev]);
     setQuickAdd('');
     posthog.capture('task_added', { mode });
-    await supabase.from(activeTable).insert(toDb(t, user.id));
+    await supabase.from(activeTable).insert(isPersonal ? toDbPersonal(t, user.id) : toDb(t, user.id));
   };
 
   const commitTask = async (full) => {
     setActiveTasks(prev => prev.map(t => t.id === full.id ? full : t));
-    await supabase.from(activeTable).update(toDb(full, user.id)).eq('id', full.id);
+    const serializer = mode === 'personal' ? toDbPersonal : toDb;
+    await supabase.from(activeTable).update(serializer(full, user.id)).eq('id', full.id);
   };
 
   const toggleComplete = async (id) => {
@@ -278,7 +282,8 @@ export default function App() {
     const updated = { ...task, completed: !task.completed, completedAt: !task.completed ? new Date().toISOString() : null };
     if (!task.completed) posthog.capture('task_completed', { score: calcScore(updated), mode, project: updated.project || null });
     setActiveTasks(prev => prev.map(t => t.id === id ? updated : t));
-    await supabase.from(activeTable).update(toDb(updated, user.id)).eq('id', id);
+    const serializer = mode === 'personal' ? toDbPersonal : toDb;
+    await supabase.from(activeTable).update(serializer(updated, user.id)).eq('id', id);
   };
 
   const deleteTask = async (id) => {
@@ -289,10 +294,11 @@ export default function App() {
   };
 
   const transferTask = async (task) => {
+    const personalTask = { ...task, mentalLoad: task.leverage, leverage: undefined };
     setTasks(prev => prev.filter(t => t.id !== task.id));
-    setPersonalTasks(prev => [task, ...prev]);
+    setPersonalTasks(prev => [personalTask, ...prev]);
     setEditingId(null);
-    await supabase.from('personal_tasks').insert(toDb(task, user.id));
+    await supabase.from('personal_tasks').insert(toDbPersonal(personalTask, user.id));
     await supabase.from('tasks').delete().eq('id', task.id);
   };
 
@@ -320,10 +326,13 @@ export default function App() {
   };
 
   const exportCSV = () => {
-    const headers = ['mode', 'title', 'project', 'provenance', 'career_alignment', 'leverage', 'effort', 'due_date', 'completed', 'completed_at', 'created_at'];
+    const headers = ['mode', 'title', 'project', 'provenance', 'career_alignment', 'leverage', 'mental_load', 'effort', 'due_date', 'completed', 'completed_at', 'created_at'];
     const toRow = (t, modeLabel) => [
       modeLabel, t.title, t.project || '', t.provenance || '',
-      t.careerAlignment, t.leverage, t.effort,
+      t.careerAlignment,
+      modeLabel === 'work' ? (t.leverage ?? '') : '',
+      modeLabel === 'personal' ? (t.mentalLoad ?? '') : '',
+      t.effort,
       t.dueDate || '', t.completed ? 'true' : 'false',
       t.completedAt || '', t.createdAt || '',
     ];
@@ -394,7 +403,7 @@ export default function App() {
   };
 
   const footerFormula = mode === 'personal'
-    ? 'score = relationship + consequence + 3×urgency − effort to start'
+    ? 'score = relationship + mental load + 3×urgency − effort to start'
     : 'score = career + leverage + 3×urgency − effort';
 
   const ProfileAvatar = () => {
